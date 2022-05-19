@@ -4,7 +4,7 @@ import cv2 as cv
 import glob
 import os
 import argparse
-
+from icecream import ic
 
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -44,16 +44,17 @@ if __name__ == '__main__':
                         render_size=opt.render_size)
 
     video_reader = cv.VideoCapture(opt.img_path)
+    input_vid_base = os.path.splitext(os.path.split(opt.img_path)[1])[0]
 
-    output_vid_name = os.path.join(opt.save_path)
+    output_vid_name = os.path.join(opt.save_path, input_vid_base + '_output.avi')
 
-    width = int(video_reader.get(cv2.CAP_PROP_FRAME_WIDTH))   # float `width`
-    height = int(video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))  # float `height`
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    fps = video_reader.get(cv2.CAP_PROP_FPS)
+    width = int(video_reader.get(cv.CAP_PROP_FRAME_WIDTH))   # float `width`
+    height = int(video_reader.get(cv.CAP_PROP_FRAME_HEIGHT))  # float `height`
+    fourcc = cv.VideoWriter_fourcc(*'XVID')
+    fps = video_reader.get(cv.CAP_PROP_FPS)
     # fourcc = cv.VideoWriter_fourcc('M', 'J', 'P', 'G')
     # video_reader.set(cv.CAP_PROP_FOURCC, fourcc)
-    out = cv2.VideoWriter(output_2d_video, fourcc, fps, (width,  height))
+    out = cv.VideoWriter(output_vid_name, fourcc, fps, (width,  height))
 
     smooth = False
     params_last = None
@@ -68,14 +69,14 @@ if __name__ == '__main__':
             _, img = video_reader.read()
             if img is None:
                 exit()
-            w = min(img.shape[1], img.shape[0]) / 2 * 0.6
+            w = min(img.shape[1], img.shape[0]) / 2 * 1.0
             left = int(img.shape[1] / 2 - w)
             top = int(img.shape[0] / 2 - w)
             size = int(2 * w)
             bbox = [left, left + size, top, top + size]
             bbox = np.array(bbox).astype(np.int32)
             crop_img = img[bbox[2]:bbox[3], bbox[0]:bbox[1]]
-
+            # ic(crop_img.shape)
             params = model.run_model(crop_img)
             if smooth and params_last is not None and params_v is not None and params_a is not None:
                 for k in params.keys():
@@ -90,6 +91,7 @@ if __name__ == '__main__':
             cv.line(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[2])), (0, 0, 255), 2)
             cv.line(img, (int(bbox[0]), int(bbox[3])), (int(bbox[1]), int(bbox[3])), (0, 0, 255), 2)
             # cv.imshow('cap', img)
+            out.write(img)
 
             if params_last is not None:
                 params_v = {}
@@ -104,7 +106,4 @@ if __name__ == '__main__':
             params_last = params
             params_last_v = params_v
 
-            # key = cv.waitKey(1)
-
-            # if key == 27:
-            #     exit()
+    out.release()
